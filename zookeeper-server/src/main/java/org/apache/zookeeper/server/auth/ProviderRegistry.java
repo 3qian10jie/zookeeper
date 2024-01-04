@@ -44,17 +44,21 @@ public class ProviderRegistry {
 
     public static void initialize() {
         synchronized (ProviderRegistry.class) {
+            // ip auth
             IPAuthenticationProvider ipp = new IPAuthenticationProvider();
             authenticationProviders.put(ipp.getScheme(), ipp);
 
+            // digest auth
             if (DigestAuthenticationProvider.isEnabled()) {
                 DigestAuthenticationProvider digp = new DigestAuthenticationProvider();
                 authenticationProviders.put(digp.getScheme(), digp);
             }
 
+            // 读取系统变量
             Enumeration<Object> en = System.getProperties().keys();
             while (en.hasMoreElements()) {
                 String k = (String) en.nextElement();
+                // 添加 zookeeper auth 相关系统变量到 authenticationProviders
                 addOrUpdateProvider(k);
             }
             initialized = true;
@@ -63,6 +67,7 @@ public class ProviderRegistry {
 
     public static void addOrUpdateProvider(String authKey) {
         synchronized (ProviderRegistry.class) {
+            // 如果系统变量是 zookeeper.authProvider. 开头的则进行处理
             if (authKey.startsWith(AUTHPROVIDER_PROPERTY_PREFIX)) {
                 String className = System.getProperty(authKey);
                 try {

@@ -655,9 +655,11 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         }
 
         listenBacklog = backlog;
+        // 初始化 NIO 服务端 socket，绑定 2181 端口，可以接收客户端请求
         this.ss = ServerSocketChannel.open();
         ss.socket().setReuseAddress(true);
         LOG.info("binding to port {}", addr);
+        // 绑定端口
         if (listenBacklog == -1) {
             ss.socket().bind(addr);
         } else {
@@ -667,6 +669,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
             // We're likely bound to a different port than was requested, so log that too
             LOG.info("bound to port {}", ss.getLocalAddress());
         }
+        // 设置为 非阻塞
         ss.configureBlocking(false);
         acceptThread = new AcceptThread(ss, addr, selectorThreads);
     }

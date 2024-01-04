@@ -71,6 +71,7 @@ public class DatadirCleanupManager {
      *            purge interval in hours
      */
     public DatadirCleanupManager(File snapDir, File dataLogDir, int snapRetainCount, int purgeInterval) {
+        // 构造函数 初始化实例
         this.snapDir = snapDir;
         this.dataLogDir = dataLogDir;
         this.snapRetainCount = snapRetainCount;
@@ -92,29 +93,38 @@ public class DatadirCleanupManager {
      * @see PurgeTxnLog#purge(File, File, int)
      */
     public void start() {
+        // 是否已经启动
         if (PurgeTaskStatus.STARTED == purgeTaskStatus) {
             LOG.warn("Purge task is already running.");
             return;
         }
         // Don't schedule the purge task with zero or negative purge interval.
+        // 默认情况下 purgeInterval = 0，不需要清理快照任务
         if (purgeInterval <= 0) {
             LOG.info("Purge task is not scheduled.");
             return;
         }
 
+        // 创建定时器
         timer = new Timer("PurgeTask", true);
+        // 创建清理任务
         TimerTask task = new PurgeTask(dataLogDir, snapDir, snapRetainCount);
+        // 定时器执行清理任务，单位时 HOUR (小时)
         timer.scheduleAtFixedRate(task, 0, TimeUnit.HOURS.toMillis(purgeInterval));
 
+        // 将清理任务状态置为 STARTED
         purgeTaskStatus = PurgeTaskStatus.STARTED;
     }
 
     /**
      * Shutdown the purge task.
+     * 关闭清理任务
      */
     public void shutdown() {
+        // 判断清理任务是否已经开始
         if (PurgeTaskStatus.STARTED == purgeTaskStatus) {
             LOG.info("Shutting down purge task.");
+            // 取消清理任务 并将任务状态置为 COMPLETED
             timer.cancel();
             purgeTaskStatus = PurgeTaskStatus.COMPLETED;
         } else {

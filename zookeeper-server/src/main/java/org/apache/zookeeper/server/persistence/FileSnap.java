@@ -81,12 +81,15 @@ public class FileSnap implements SnapShot {
         File snap = null;
         long snapZxid = -1;
         boolean foundValid = false;
+        // 依次遍历每一个快照的数据，理想情况下只恢复最近的一个快照文件，如果最近快照文件获取异常，再恢复较近的快照文件
         for (int i = 0, snapListSize = snapList.size(); i < snapListSize; i++) {
             snap = snapList.get(i);
             LOG.info("Reading snapshot {}", snap);
             snapZxid = Util.getZxidFromName(snap.getName(), SNAPSHOT_FILE_PREFIX);
+            // 反序列化环境准备
             try (CheckedInputStream snapIS = SnapStream.getInputStream(snap)) {
                 InputArchive ia = BinaryInputArchive.getArchive(snapIS);
+                // 反序列化，恢复数据到 DataTree
                 deserialize(dt, sessions, ia);
                 SnapStream.checkSealIntegrity(snapIS, ia);
 
@@ -138,6 +141,7 @@ public class FileSnap implements SnapShot {
         if (header.getMagic() != SNAP_MAGIC) {
             throw new IOException("mismatching magic headers " + header.getMagic() + " !=  " + FileSnap.SNAP_MAGIC);
         }
+        // 恢复快照数据到 DataTree
         SerializeUtils.deserializeSnapshot(dt, ia, sessions);
     }
 
@@ -154,6 +158,7 @@ public class FileSnap implements SnapShot {
     }
 
     /**
+     * 找到最新的 n 个有效的 snap 文件
      * find the last (maybe) valid n snapshots. this does some
      * minor checks on the validity of the snapshots. It just
      * checks for / at the end of the snapshot. This does
@@ -165,6 +170,7 @@ public class FileSnap implements SnapShot {
      * less than n in case enough snapshots are not available).
      */
     protected List<File> findNValidSnapshots(int n) {
+        // 按 zxid 倒序排序
         List<File> files = Util.sortDataDir(snapDir.listFiles(), SNAPSHOT_FILE_PREFIX, false);
         int count = 0;
         List<File> list = new ArrayList<>();
@@ -173,6 +179,7 @@ public class FileSnap implements SnapShot {
             // from the valid snapshot and continue
             // until we find a valid one
             try {
+                // 校验是否时有效的 snap
                 if (SnapStream.isValidSnapshot(f)) {
                     list.add(f);
                     count++;

@@ -380,6 +380,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
         this.requestPathMetricsCollector = new RequestPathMetricsCollector();
 
+        // 初始化最大请求限制
         this.initLargeRequestThrottlingSettings();
 
         LOG.info(
@@ -1614,7 +1615,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     private void initLargeRequestThrottlingSettings() {
+        // 最大请求字节数设置
         setLargeRequestMaxBytes(Integer.getInteger("zookeeper.largeRequestMaxBytes", largeRequestMaxBytes));
+        // 最大请求阈值设置
         setLargeRequestThreshold(Integer.getInteger("zookeeper.largeRequestThreshold", -1));
     }
 
@@ -1650,6 +1653,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return currentLargeRequestBytes.get();
     }
 
+    /**
+     * 是否炒作最大请求阈值
+     */
     private boolean isLargeRequest(int length) {
         // The large request limit is disabled when threshold is -1
         if (largeRequestThreshold == -1) {
@@ -1658,6 +1664,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return length > largeRequestThreshold;
     }
 
+    /**
+     * 校验请求大小是否超过设置阈值
+     */
     public boolean checkRequestSizeWhenReceivingMessage(int length) throws IOException {
         if (!isLargeRequest(length)) {
             return true;

@@ -1342,9 +1342,12 @@ public class DataTree {
         pTrie.clear();
         nodeDataSize.set(0);
         String path = ia.readString("path");
+        // 从快照中恢复每一个 datanode 节点数据到 DataTree
         while (!"/".equals(path)) {
+            // 每次循环创建一个节点对象
             DataNode node = new DataNode();
             ia.readRecord(node, "node");
+            // 将 DataNode 恢复到 DataTree
             nodes.put(path, node);
             synchronized (node) {
                 aclCache.addUsage(node.acl);
@@ -1353,13 +1356,16 @@ public class DataTree {
             if (lastSlash == -1) {
                 root = node;
             } else {
+                // 处理父节点
                 String parentPath = path.substring(0, lastSlash);
                 DataNode parent = nodes.get(parentPath);
                 if (parent == null) {
                     throw new IOException(
                             "Invalid Datatree, unable to find parent " + parentPath + " of path " + path);
                 }
+                // 处理子节点
                 parent.addChild(path.substring(lastSlash + 1));
+                // 处理临时节点和永久节点
                 long owner = node.stat.getEphemeralOwner();
                 EphemeralType ephemeralType = EphemeralType.get(owner);
                 if (ephemeralType == EphemeralType.CONTAINER) {

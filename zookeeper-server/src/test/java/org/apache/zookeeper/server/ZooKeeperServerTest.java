@@ -32,10 +32,7 @@ import java.util.UUID;
 import org.apache.zookeeper.ZKTestCase;
 import org.apache.zookeeper.metrics.MetricsUtils;
 import org.apache.zookeeper.proto.ConnectRequest;
-import org.apache.zookeeper.server.persistence.FileTxnLog;
-import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
-import org.apache.zookeeper.server.persistence.SnapStream;
-import org.apache.zookeeper.server.persistence.Util;
+import org.apache.zookeeper.server.persistence.*;
 import org.apache.zookeeper.server.util.QuotaMetricsUtils;
 import org.apache.zookeeper.test.ClientBase;
 import org.junit.jupiter.api.Test;
@@ -43,7 +40,7 @@ import org.junit.jupiter.api.Test;
 public class ZooKeeperServerTest extends ZKTestCase {
 
     @Test
-    public void testSortDataDirAscending() {
+    public void testSortDataDirAscending() throws IOException {
         File[] files = new File[5];
 
         files[0] = new File("foo.10027c6de");
@@ -61,6 +58,14 @@ public class ZooKeeperServerTest extends ZKTestCase {
         assertEquals(orig[0], filelist.get(2));
         assertEquals(orig[1], filelist.get(3));
         assertEquals(orig[4], filelist.get(4));
+
+        String dataDir = "D:\\Program Files\\apache-zookeeper-3.8.3-bin\\data";
+        String logDir = "D:\\Program Files\\apache-zookeeper-3.8.3-bin\\log";
+        FileTxnSnapLog snapLog = new FileTxnSnapLog(new File(logDir), new File(dataDir));
+        ZKDatabase zdb = new ZKDatabase(snapLog);
+        zdb.loadDataBase();
+        final List<File> nRecentSnapshots = snapLog.findNValidSnapshots(3);
+
     }
 
     @Test

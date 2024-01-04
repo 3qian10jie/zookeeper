@@ -1132,26 +1132,37 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         if (!getView().containsKey(myid)) {
             throw new RuntimeException("My id " + myid + " not in the peer list");
         }
+        // 加载数据
         loadDataBase();
+        // 启动 NIO
         startServerCnxnFactory();
         try {
+            // jetty 服务
             adminServer.start();
         } catch (AdminServerException e) {
             LOG.warn("Problem starting AdminServer", e);
         }
+        // 准备选举环境
         startLeaderElection();
         startJvmPauseMonitor();
+        // 选举
         super.start();
     }
 
     private void loadDataBase() {
         try {
+            // 数据恢复过程：
+            // （1）从快照文件中恢复大部分数据，并得到一个 lastProcessZXid
+            // （2）再从编辑日志中执行 replay，执行到最后一条日志并更新 lastProcessZXid
+            // （3）最终得到，datatree 和 lastProcessZXid，表示数据恢复完成
             zkDb.loadDataBase();
 
             // load the epochs
+            // 根据最新的 zxid 获取 epoch
             long lastProcessedZxid = zkDb.getDataTree().lastProcessedZxid;
             long epochOfZxid = ZxidUtils.getEpochFromZxid(lastProcessedZxid);
             try {
+                // 从文件获取当前 epoch
                 currentEpoch = readLongFromFile(CURRENT_EPOCH_FILENAME);
             } catch (FileNotFoundException e) {
                 // pick a reasonable epoch number

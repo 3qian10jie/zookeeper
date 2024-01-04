@@ -65,6 +65,7 @@ public class ZooKeeperServerMain {
     public static void main(String[] args) {
         ZooKeeperServerMain main = new ZooKeeperServerMain();
         try {
+            // 初始化并运行
             main.initializeAndRun(args);
         } catch (IllegalArgumentException e) {
             LOG.error("Invalid arguments, exiting abnormally", e);
@@ -98,6 +99,7 @@ public class ZooKeeperServerMain {
 
     protected void initializeAndRun(String[] args) throws ConfigException, IOException, AdminServerException {
         try {
+            // 注册 log4j
             ManagedUtil.registerLog4jMBeans();
         } catch (JMException e) {
             LOG.warn("Unable to register log4j JMX control", e);
@@ -105,6 +107,7 @@ public class ZooKeeperServerMain {
 
         ServerConfig config = new ServerConfig();
         if (args.length == 1) {
+            // 解析参数
             config.parse(args[0]);
         } else {
             config.parse(args);
@@ -131,16 +134,20 @@ public class ZooKeeperServerMain {
                 throw new IOException("Cannot boot MetricsProvider " + config.getMetricsProviderClassName(), error);
             }
             ServerMetrics.metricsProviderInitialized(metricsProvider);
+            // auth 初始化
             ProviderRegistry.initialize();
             // Note that this thread isn't going to be doing anything else,
             // so rather than spawning another thread, we will just call
             // run() in this thread.
             // create a file logger url from the command line args
+            // 创建 data and snap 文件实例
             txnLog = new FileTxnSnapLog(config.dataLogDir, config.dataDir);
+            // jvm pause 监视
             JvmPauseMonitor jvmPauseMonitor = null;
             if (config.jvmPauseMonitorToRun) {
                 jvmPauseMonitor = new JvmPauseMonitor(config);
             }
+            // 创建 zk 服务实例
             final ZooKeeperServer zkServer = new ZooKeeperServer(jvmPauseMonitor, txnLog, config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, config.listenBacklog, null, config.initialConfig);
             txnLog.setServerStats(zkServer.serverStats());
 
@@ -150,12 +157,15 @@ public class ZooKeeperServerMain {
             zkServer.registerServerShutdownHandler(new ZooKeeperServerShutdownHandler(shutdownLatch));
 
             // Start Admin server
+            // jetty的嵌入式服务器, 可以查看一些配置信息等
             adminServer = AdminServerFactory.createAdminServer();
             adminServer.setZooKeeperServer(zkServer);
             adminServer.start();
 
+            // 通信组件初始化及启动
             boolean needStartZKServer = true;
             if (config.getClientPortAddress() != null) {
+                // 创建通信组件工厂类，默认是 NIO，可以指定为 Netty
                 cnxnFactory = ServerCnxnFactory.createFactory();
                 cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns(), config.getClientPortListenBacklog(), false);
                 cnxnFactory.startup(zkServer);

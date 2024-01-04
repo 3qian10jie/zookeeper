@@ -73,15 +73,18 @@ public class PurgeTxnLog {
      * @throws IOException
      */
     public static void purge(File dataDir, File snapDir, int num) throws IOException {
+        // 保留文件数小于3，抛出异常，默认是 3
         if (num < 3) {
             throw new IllegalArgumentException(COUNT_ERR_MSG);
         }
 
         FileTxnSnapLog txnLog = new FileTxnSnapLog(dataDir, snapDir);
 
+        // 找到 num 个 更久的快照文件需要清理
         List<File> snaps = txnLog.findNValidSnapshots(num);
         int numSnaps = snaps.size();
         if (numSnaps > 0) {
+            // 清理更早的文件
             purgeOlderSnapshots(txnLog, snaps.get(numSnaps - 1));
         }
     }

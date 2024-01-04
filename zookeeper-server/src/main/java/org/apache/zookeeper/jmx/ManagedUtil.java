@@ -58,6 +58,7 @@ public class ManagedUtil {
      */
     @SuppressWarnings("rawtypes")
     public static void registerLog4jMBeans() throws JMException {
+        // 是否加载 log4j jmx
         if (isLog4jJmxEnabled()) {
             LOG.debug("registerLog4jMBeans()");
             MBeanServer mbs = MBeanRegistry.getInstance().getPlatformMBeanServer();

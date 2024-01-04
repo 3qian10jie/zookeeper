@@ -104,6 +104,7 @@ public class FileTxnSnapLog {
     }
 
     /**
+     * 对 data文件夹 和 snap 文件夹进行一些校验
      * the constructor which takes the datadir and
      * snapdir.
      * @param dataDir the transaction directory
@@ -177,6 +178,9 @@ public class FileTxnSnapLog {
         txnLog.setServerStats(serverStats);
     }
 
+    /**
+     * 检查 log 文件夹是否有 snap 文件
+     */
     private void checkLogDir() throws LogDirContentCheckException {
         File[] files = this.dataDir.listFiles(new FilenameFilter() {
             @Override
@@ -190,6 +194,9 @@ public class FileTxnSnapLog {
         }
     }
 
+    /**
+     * 检查 snap 文件夹是否有 log 文件
+     */
     private void checkSnapDir() throws SnapDirContentCheckException {
         File[] files = this.snapDir.listFiles(new FilenameFilter() {
             @Override
@@ -251,6 +258,7 @@ public class FileTxnSnapLog {
      */
     public long restore(DataTree dt, Map<Long, Integer> sessions, PlayBackListener listener) throws IOException {
         long snapLoadingStartTime = Time.currentElapsedTime();
+        //  恢复快照文件数据到 DataTree
         long deserializeResult = snapLog.deserialize(dt, sessions);
         ServerMetrics.getMetrics().STARTUP_SNAP_LOAD_TIME.add(Time.currentElapsedTime() - snapLoadingStartTime);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
@@ -264,6 +272,7 @@ public class FileTxnSnapLog {
         }
 
         RestoreFinalizer finalizer = () -> {
+            // 恢复编辑日志数据到 DataTree
             long highestZxid = fastForwardFromEdits(dt, sessions, listener);
             // The snapshotZxidDigest will reset after replaying the txn of the
             // zxid in the snapshotZxidDigest, if it's not reset to null after
@@ -327,15 +336,19 @@ public class FileTxnSnapLog {
         DataTree dt,
         Map<Long, Integer> sessions,
         PlayBackListener listener) throws IOException {
+        // 在此之前，已经从快照文件中恢复了大部分数据，接下来只需从快照的 zxid + 1 位置开始恢复
         TxnIterator itr = txnLog.read(dt.lastProcessedZxid + 1);
+        // 快照中最大的 zxid，在执行编辑日志时，这个值会不断更新，直到所有操作执行完
         long highestZxid = dt.lastProcessedZxid;
         TxnHeader hdr;
         int txnLoaded = 0;
         long startTime = Time.currentElapsedTime();
         try {
+            // 从 lastProcessedZxid 事务编号器开始，不断的从编辑日志中恢复剩下的还没有恢复的数据
             while (true) {
                 // iterator points to
                 // the first valid txn when initialized
+                // 获取事务头信息（有 zxid）
                 hdr = itr.getHeader();
                 if (hdr == null) {
                     //empty logs
@@ -347,6 +360,7 @@ public class FileTxnSnapLog {
                     highestZxid = hdr.getZxid();
                 }
                 try {
+                    // 根据编辑日志恢复数据到 DataTree，每执行一次，对应的事务 id，highestZxid + 1
                     processTransaction(hdr, dt, sessions, itr.getTxn());
                     dt.compareDigest(hdr, itr.getTxn(), itr.getDigest());
                     txnLoaded++;
@@ -439,6 +453,7 @@ public class FileTxnSnapLog {
             rc = dt.processTxn(hdr, txn);
             break;
         default:
+            // 创建节点、删除节点和其他的各种事务操作等
             rc = dt.processTxn(hdr, txn);
         }
 

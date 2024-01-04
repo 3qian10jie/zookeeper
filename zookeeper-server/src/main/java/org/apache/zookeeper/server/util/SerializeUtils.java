@@ -156,6 +156,7 @@ public class SerializeUtils {
             }
             count--;
         }
+        // 恢复快照数据到 DataTree
         dt.deserialize(ia, "tree");
     }
 

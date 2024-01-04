@@ -87,6 +87,7 @@ public class ServerConfig {
     }
 
     /**
+     * 从 QuorumPeerConfig 解析的配置中加载配置
      * Parse a ZooKeeper configuration file
      * @param path the patch of the configuration file
      * @throws ConfigException error processing configuration

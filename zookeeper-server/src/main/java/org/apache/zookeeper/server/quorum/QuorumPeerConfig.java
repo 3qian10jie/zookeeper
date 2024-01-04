@@ -67,24 +67,32 @@ public class QuorumPeerConfig {
     private static final int UNSET_SERVERID = -1;
     public static final String nextDynamicConfigFileSuffix = ".dynamic.next";
 
+    /** 当设置为false时，服务器在复制模式下启动 */
     private static boolean standaloneEnabled = true;
     private static boolean reconfigEnabled = false;
 
+    /** 对于多网卡的机器，可以为每个IP指定不同的监听端口，默认情况是所有IP都监听clientPort拽定的端口 */
     protected InetSocketAddress clientPortAddress;
     protected InetSocketAddress secureClientPortAddress;
     protected boolean sslQuorum = false;
     protected boolean shouldUsePortUnification = false;
     protected int observerMasterPort;
     protected boolean sslQuorumReloadCertFiles = false;
+    /** 存储snapshot的目录，默认情况下，事务日志也会存储在这里 */
     protected File dataDir;
+    /** 事务日志输出目录，尽量给事务日志的输出配置单独的磁盘或挂载点 */
     protected File dataLogDir;
     protected String dynamicConfigFileStr = null;
     protected String configFileStr = null;
+    /** ZK中的一个时间单元。ZK中所有时间都是以这个时间单元为基础，进行整数倍配置的 */
     protected int tickTime = ZooKeeperServer.DEFAULT_TICK_TIME;
+    /** 一个客户端能够连接到同一个服务器上的最大连接数，根据IP来区分，默认值为0，如果设置为0，表示没有任何限制，设置该值是为了防止Dos攻击。 */
     protected int maxClientCnxns = 60;
-    /** defaults to -1 if not set explicitly */
+    /** defaults to -1 if not set explicitly
+     最小的session time，默认是2个tick time */
     protected int minSessionTimeout = -1;
-    /** defaults to -1 if not set explicitly */
+    /** defaults to -1 if not set explicitly
+    /** 最大的session time，默认值是20个tick time */
     protected int maxSessionTimeout = -1;
     protected String metricsProviderClassName = DefaultMetricsProvider.class.getName();
     protected Properties metricsProviderConfiguration = new Properties();
@@ -93,18 +101,26 @@ public class QuorumPeerConfig {
     /** defaults to -1 if not set explicitly */
     protected int clientPortListenBacklog = -1;
 
+    /** 在leader选举结束后，followers与leader同步需的时间 */
     protected int initLimit;
+    /** 与leader交互时最大等待时间，但是在同步完毕之后 */
     protected int syncLimit;
     protected int connectToLearnerMasterLimit;
+    /** leader选举算法 */
     protected int electionAlg = 3;
+    /** leader选举通信端口 */
     protected int electionPort = 2182;
+    /** ZK服务器将监听所有可用IP地址的连接，他会影响ZAB协议和快速选举协议 */
     protected boolean quorumListenOnAllIPs = false;
 
     protected long serverId = UNSET_SERVERID;
 
     protected QuorumVerifier quorumVerifier = null, lastSeenQuorumVerifier = null;
+    /** 指定了需要保留的文件数目 */
     protected int snapRetainCount = 3;
+    /** zk有自动清理事务日志和快照文件的功能，这个参数指定了清理频率，单位是小时，默认是0，表示不开启自动清理功能 */
     protected int purgeInterval = 0;
+    /** Observer写入日志和生成快照 */
     protected boolean syncEnabled = true;
 
     protected String initialConfig;
@@ -169,6 +185,7 @@ public class QuorumPeerConfig {
     }
 
     /**
+     * 解析 zk 的配置文件
      * Parse a ZooKeeper configuration file
      * @param path the patch of the configuration file
      * @throws ConfigException error processing configuration
@@ -182,6 +199,7 @@ public class QuorumPeerConfig {
                 .failForNonExistingPath()
                 .build()).create(path);
 
+            // 加载配置
             Properties cfg = new Properties();
             try (FileInputStream in = new FileInputStream(configFile)) {
                 cfg.load(in);
@@ -190,7 +208,7 @@ public class QuorumPeerConfig {
 
             /* Read entire config file as initial configuration */
             initialConfig = new String(Files.readAllBytes(configFile.toPath()));
-
+            // 解析配置
             parseProperties(cfg);
         } catch (IOException e) {
             throw new ConfigException("Error processing " + path, e);
