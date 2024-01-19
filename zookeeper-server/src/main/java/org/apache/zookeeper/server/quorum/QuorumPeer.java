@@ -1225,6 +1225,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     public synchronized void startLeaderElection() {
         try {
             if (getPeerState() == ServerState.LOOKING) {
+                // 创建选票
+                // （1）选票组件：epoch（leader 的任期代号）、zxid（某个 leader 当选期间执行的事务编号）、myid（serverid）
+                // （2）开始选票时，都是先投自己
                 currentVote = new Vote(myid, getLastLoggedZxid(), getCurrentEpoch());
             }
         } catch (IOException e) {
@@ -1233,6 +1236,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             throw re;
         }
 
+        // 创建选举算法实例
         this.electionAlg = createElectionAlgorithm(electionType);
     }
 
@@ -1369,6 +1373,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         case 2:
             throw new UnsupportedOperationException("Election Algorithm 2 is not supported.");
         case 3:
+            // 1 创建 QuorumCnxnManager，负责选举过程中的所有网络通信
             QuorumCnxManager qcm = createCnxnManager();
             QuorumCnxManager oldQcm = qcmRef.getAndSet(qcm);
             if (oldQcm != null) {
@@ -1377,8 +1382,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             }
             QuorumCnxManager.Listener listener = qcm.listener;
             if (listener != null) {
+                // 2 启动监听线程
                 listener.start();
                 FastLeaderElection fle = new FastLeaderElection(this, qcm);
+                // 3 准备开始选举
                 fle.start();
                 le = fle;
             } else {
@@ -1516,6 +1523,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
                                 shuttingDownLE = false;
                                 startLeaderElection();
                             }
+                            // 进行选举，选举结束，返回最终成为 Leader 胜选的那张选票
                             setCurrentVote(makeLEStrategy().lookForLeader());
                             checkSuspended();
                         } catch (Exception e) {

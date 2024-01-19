@@ -463,15 +463,18 @@ public class LearnerHandler extends ZooKeeperThread {
     public void run() {
         try {
             learnerMaster.addLearnerHandler(this);
+            // 心跳处理
             tickOfNextAckDeadline = learnerMaster.getTickOfInitialAckDeadline();
 
             ia = BinaryInputArchive.getArchive(bufferedInput);
             bufferedOutput = new BufferedOutputStream(sock.getOutputStream());
             oa = BinaryOutputArchive.getArchive(bufferedOutput);
 
+            // 从网络中接收消息，并反序列化为 packet
             QuorumPacket qp = new QuorumPacket();
             ia.readRecord(qp, "packet");
 
+            // 选举结束后，observer 和 follower 都应该给 leader 发送一个标志信息：FOLLOWERINFO 或者 OBSERVERINFO
             messageTracker.trackReceived(qp.getType());
             if (qp.getType() != Leader.FOLLOWERINFO && qp.getType() != Leader.OBSERVERINFO) {
                 LOG.error("First packet {} is not FOLLOWERINFO or OBSERVERINFO!", qp.toString());
@@ -517,11 +520,15 @@ public class LearnerHandler extends ZooKeeperThread {
 
             learnerMaster.registerLearnerHandlerBean(this, sock);
 
+            // 读取 Follower 发送过来的 lastAcceptedEpoch
+            // 选举过程中，所使用的 epoch，其实还是上一任 leader 的 epoch
             long lastAcceptedEpoch = ZxidUtils.getEpochFromZxid(qp.getZxid());
 
             long peerLastZxid;
             StateSummary ss = null;
+            // 读取 follower 发送过来的 zxid
             long zxid = qp.getZxid();
+            // Leader 根据从 Follower 获取 sid 和旧的 epoch，构建新的 epoch
             long newEpoch = learnerMaster.getEpochToPropose(this.getSid(), lastAcceptedEpoch);
             long newLeaderZxid = ZxidUtils.makeZxid(newEpoch, 0);
 
@@ -534,10 +541,12 @@ public class LearnerHandler extends ZooKeeperThread {
             } else {
                 byte[] ver = new byte[4];
                 ByteBuffer.wrap(ver).putInt(0x10000);
+                // Leader 向 Follower 发送信息（包含:zxid 和 newEpoch）
                 QuorumPacket newEpochPacket = new QuorumPacket(Leader.LEADERINFO, newLeaderZxid, ver, null);
                 oa.writeRecord(newEpochPacket, "packet");
                 messageTracker.trackSent(Leader.LEADERINFO);
                 bufferedOutput.flush();
+                // 从 follower 接收 ACK 消息
                 QuorumPacket ackEpochPacket = new QuorumPacket();
                 ia.readRecord(ackEpochPacket, "packet");
                 messageTracker.trackReceived(ackEpochPacket.getType());
@@ -546,6 +555,7 @@ public class LearnerHandler extends ZooKeeperThread {
                     return;
                 }
                 ByteBuffer bbepoch = ByteBuffer.wrap(ackEpochPacket.getData());
+                // 保存了对方 follower 或者 observer 的状态：epoch 和 zxid
                 ss = new StateSummary(bbepoch.getInt(), ackEpochPacket.getZxid());
                 learnerMaster.waitForEpochAck(this.getSid(), ss);
             }
@@ -553,6 +563,7 @@ public class LearnerHandler extends ZooKeeperThread {
 
             // Take any necessary action if we need to send TRUNC or DIFF
             // startForwarding() will be called in all cases
+            // 判断 Leader 和 Follower 是否需要同步
             boolean needSnap = syncFollower(peerLastZxid, learnerMaster);
 
             // syncs between followers and the leader are exempt from throttling because it

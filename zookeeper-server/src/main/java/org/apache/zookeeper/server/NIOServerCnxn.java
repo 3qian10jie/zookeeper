@@ -146,6 +146,7 @@ public class NIOServerCnxn extends ServerCnxn {
             LOG.trace("Add a buffer to outgoingBuffers, sk {} is valid: {}", sk, sk.isValid());
         }
 
+        // 放入 outgoingBuffers 队列中
         synchronized (outgoingBuffers) {
             for (ByteBuffer buffer : buffers) {
                 outgoingBuffers.add(buffer);
@@ -687,9 +688,11 @@ public class NIOServerCnxn extends ServerCnxn {
     public int sendResponse(ReplyHeader h, Record r, String tag, String cacheKey, Stat stat, int opCode) {
         int responseSize = 0;
         try {
+            // 序列化到缓存池里
             ByteBuffer[] bb = serialize(h, r, tag, cacheKey, stat, opCode);
             responseSize = bb[0].getInt();
             bb[0].rewind();
+            // 发送
             sendBuffer(bb);
             decrOutstandingAndCheckThrottle(h);
         } catch (Exception e) {
@@ -705,6 +708,7 @@ public class NIOServerCnxn extends ServerCnxn {
      */
     @Override
     public void process(WatchedEvent event) {
+        // 请求头
         ReplyHeader h = new ReplyHeader(ClientCnxn.NOTIFICATION_XID, event.getZxid(), 0);
         if (LOG.isTraceEnabled()) {
             ZooTrace.logTraceMessage(
@@ -719,6 +723,7 @@ public class NIOServerCnxn extends ServerCnxn {
         // The last parameter OpCode here is used to select the response cache.
         // Passing OpCode.error (with a value of -1) means we don't care, as we don't need
         // response cache on delivering watcher events.
+        // 给客户端发送通知
         int responseSize = sendResponse(h, e, "notification", null, null, ZooDefs.OpCode.error);
         ServerMetrics.getMetrics().WATCH_BYTES.add(responseSize);
     }

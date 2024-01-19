@@ -269,11 +269,14 @@ public class Learner {
     protected QuorumServer findLeader() {
         QuorumServer leaderServer = null;
         // Find the leader by id
+        // 选举投票的时候记录的，最后推荐的 leader 的 sid
         Vote current = self.getCurrentVote();
+        // 如果这个 sid 在启动的所有服务器范围中
         for (QuorumServer s : self.getView().values()) {
             if (s.id == current.getId()) {
                 // Ensure we have the leader's correct IP address before
                 // attempting to connect.
+                // 尝试连接 leader 的正确 IP 地址
                 s.recreateSocketAddresses();
                 leaderServer = s;
                 break;
@@ -312,6 +315,7 @@ public class Learner {
     protected void connectToLeader(MultipleAddresses multiAddr, String hostname) throws IOException {
 
         this.leaderAddr = multiAddr;
+        // 获取连接地址
         Set<InetSocketAddress> addresses;
         if (self.isMultiAddressReachabilityCheckEnabled()) {
             // even if none of the addresses are reachable, we want to try to establish connection
@@ -320,6 +324,7 @@ public class Learner {
         } else {
             addresses = multiAddr.getAllAddresses();
         }
+        // 创建连接池
         ExecutorService executor = Executors.newFixedThreadPool(addresses.size());
         CountDownLatch latch = new CountDownLatch(addresses.size());
         AtomicReference<Socket> socket = new AtomicReference<>(null);
@@ -373,6 +378,7 @@ public class Learner {
         public void run() {
             try {
                 Thread.currentThread().setName("LeaderConnector-" + address);
+                // 连接 leader，获取 socket
                 Socket sock = connectToLeader();
 
                 if (sock != null && sock.isConnected()) {
@@ -392,6 +398,7 @@ public class Learner {
         }
 
         private Socket connectToLeader() throws IOException, X509Exception, InterruptedException {
+            // 创建 socket
             Socket sock = createSocket();
 
             // leader connection timeout defaults to tickTime * initLimit
@@ -415,6 +422,7 @@ public class Learner {
                         throw new IOException("connectToLeader exceeded on retries.");
                     }
 
+                    // socket 连接
                     sockConnect(sock, address, Math.min(connectTimeout, remainingTimeout));
                     if (self.isSslQuorum()) {
                         ((SSLSocket) sock).startHandshake();
@@ -497,16 +505,22 @@ public class Learner {
         boa.writeRecord(li, "LearnerInfo");
         qp.setData(bsid.toByteArray());
 
+        // 发送 FollowerInfo 给 Leader
         writePacket(qp, true);
+        // 读取 Leader 返回的结果：LeaderInfo
         readPacket(qp);
         final long newEpoch = ZxidUtils.getEpochFromZxid(qp.getZxid());
+        // 如果接收到 LeaderInfo
         if (qp.getType() == Leader.LEADERINFO) {
             // we are connected to a 1.0 server so accept the new epoch and read the next packet
             leaderProtocolVersion = ByteBuffer.wrap(qp.getData()).getInt();
             byte[] epochBytes = new byte[4];
             final ByteBuffer wrappedEpochBytes = ByteBuffer.wrap(epochBytes);
+            // 接收 leader 的 epoch
             if (newEpoch > self.getAcceptedEpoch()) {
+                // 把自己原来的 epoch 保存在 wrappedEpochBytes 里
                 wrappedEpochBytes.putInt((int) self.getCurrentEpoch());
+                // 把 leader 发送过来的 epoch 保存起来
                 self.setAcceptedEpoch(newEpoch);
             } else if (newEpoch == self.getAcceptedEpoch()) {
                 // since we have already acked an epoch equal to the leaders, we cannot ack
@@ -520,6 +534,7 @@ public class Learner {
                                       + " is less than accepted epoch, "
                                       + self.getAcceptedEpoch());
             }
+            // 发送 ackepoch 给 leader（包含了自己的：epoch 和 zxid）
             QuorumPacket ackNewEpoch = new QuorumPacket(Leader.ACKEPOCH, lastLoggedZxid, epochBytes, null);
             writePacket(ackNewEpoch, true);
             return ZxidUtils.makeZxid(newEpoch, 0);

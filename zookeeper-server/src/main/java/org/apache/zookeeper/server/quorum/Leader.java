@@ -459,6 +459,7 @@ public class Leader extends LearnerMaster {
                 ExecutorService executor = Executors.newFixedThreadPool(serverSockets.size());
                 CountDownLatch latch = new CountDownLatch(serverSockets.size());
 
+                // 为每个 serverSockets 创建连接
                 serverSockets.forEach(serverSocket ->
                         executor.submit(new LearnerCnxAcceptorHandler(serverSocket, latch)));
 
@@ -517,6 +518,7 @@ public class Leader extends LearnerMaster {
                 Socket socket = null;
                 boolean error = false;
                 try {
+                    // 等待接收 follower 的状态同步申请
                     socket = serverSocket.accept();
 
                     // start with the initLimit, once the ack is processed
@@ -524,6 +526,7 @@ public class Leader extends LearnerMaster {
                     socket.setSoTimeout(self.tickTime * self.initLimit);
                     socket.setTcpNoDelay(nodelay);
 
+                    // 一旦接收到 follower 的请求，就创建 LearnerHandler 对象，处理请求
                     BufferedInputStream is = new BufferedInputStream(socket.getInputStream());
                     LearnerHandler fh = new LearnerHandler(socket, is, Leader.this);
                     fh.start();
@@ -592,20 +595,25 @@ public class Leader extends LearnerMaster {
         self.start_fle = 0;
         self.end_fle = 0;
 
+        // 注册 JMX
         zk.registerJMX(new LeaderBean(this, zk), self.jmxLocalPeerBean);
 
         try {
             self.setZabState(QuorumPeer.ZabState.DISCOVERY);
             self.tick.set(0);
+            // 恢复数据到内存，启动时已加载过
             zk.loadData();
 
             leaderStateSummary = new StateSummary(self.getCurrentEpoch(), zk.getLastProcessedZxid());
 
             // Start thread that waits for connection requests from
             // new followers.
+            // 等待其他 follower 节点向 leader 节点发送同步状态
             cnxAcceptor = new LearnerCnxAcceptor();
             cnxAcceptor.start();
 
+            // acceptedEpoch记录的是接收到最后的NEWEPOCH消息中的epoch.
+            // currentEpoch指接收到最新NEWLEADER消息中的epoch.
             long epoch = getEpochToPropose(self.getMyId(), self.getAcceptedEpoch());
 
             zk.setZxid(ZxidUtils.makeZxid(epoch, 0));

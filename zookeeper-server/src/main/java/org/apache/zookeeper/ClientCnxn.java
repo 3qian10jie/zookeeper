@@ -411,6 +411,7 @@ public class ClientCnxn {
         this.connectTimeout = sessionTimeout / hostProvider.size();
         this.readTimeout = sessionTimeout * 2 / 3;
 
+        // 创建了两个线程
         this.sendThread = new SendThread(clientCnxnSocket);
         this.eventThread = new EventThread();
         initRequestTimeout();
@@ -864,6 +865,7 @@ public class ClientCnxn {
                     eventThread.queueEventOfDeath();
                 }
               return;
+                // 处理服务端到通知
             case NOTIFICATION_XID:
                 LOG.debug("Got notification session id: 0x{}",
                     Long.toHexString(sessionId));
@@ -872,6 +874,7 @@ public class ClientCnxn {
 
                 WatchedEvent we = new WatchedEvent(event, replyHdr.getZxid());
                 LOG.debug("Got {} for session id 0x{}", we, Long.toHexString(sessionId));
+                // 加入到事件队列中、由EventThread处理
                 eventThread.queueEvent(we);
                 return;
             default:
@@ -888,6 +891,7 @@ public class ClientCnxn {
                 return;
             }
 
+            // 移除这个Packet
             Packet packet;
             synchronized (pendingQueue) {
                 if (pendingQueue.size() == 0) {
@@ -920,6 +924,7 @@ public class ClientCnxn {
 
                 LOG.debug("Reading reply session id: 0x{}, packet:: {}", Long.toHexString(sessionId), packet);
             } finally {
+                // 将Watcher 保存在 ClientWatchManager
                 finishPacket(packet);
             }
         }
@@ -1080,6 +1085,7 @@ public class ClientCnxn {
                     LOG.warn("Unexpected exception", e);
                 }
             }
+            // 更新 ZK 状态
             changeZkState(States.CONNECTING);
 
             String hostPort = addr.getHostString() + ":" + addr.getPort();
@@ -1106,6 +1112,7 @@ public class ClientCnxn {
             }
             logStartConnect(addr);
 
+            // 连接服务端
             clientCnxnSocket.connect(addr);
         }
 
@@ -1140,6 +1147,7 @@ public class ClientCnxn {
                             serverAddress = hostProvider.next(1000);
                         }
                         onConnecting(serverAddress);
+                        // 开始连接 服务端
                         startConnect(serverAddress);
                         // Update now to start the connection timer right after we make a connection attempt
                         clientCnxnSocket.updateNow();
@@ -1222,6 +1230,7 @@ public class ClientCnxn {
                         to = Math.min(to, pingRwTimeout - idlePingRwServer);
                     }
 
+                    // 接收服务端响应并处理
                     clientCnxnSocket.doTransport(to, pendingQueue, ClientCnxn.this);
                 } catch (Throwable e) {
                     if (closing) {
@@ -1507,6 +1516,7 @@ public class ClientCnxn {
         WatchRegistration watchRegistration,
         WatchDeregistration watchDeregistration) throws InterruptedException {
         ReplyHeader r = new ReplyHeader();
+        // Request 被加入到 outgoingQueue中
         Packet packet = queuePacket(
             h,
             r,

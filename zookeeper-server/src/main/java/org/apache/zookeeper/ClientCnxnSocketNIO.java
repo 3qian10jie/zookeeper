@@ -103,6 +103,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             }
         }
         if (sockKey.isWritable()) {
+            // 从 outgoingQueue 发送队列取
             Packet p = findSendablePacket(outgoingQueue, sendThread.tunnelAuthInProgress());
 
             if (p != null) {
@@ -112,18 +113,23 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                     if ((p.requestHeader != null)
                         && (p.requestHeader.getType() != OpCode.ping)
                         && (p.requestHeader.getType() != OpCode.auth)) {
+                        //设置客户端的xid
                         p.requestHeader.setXid(cnxn.getXid());
                     }
+                    // 序列化
                     p.createBB();
                 }
+                // 发送
                 sock.write(p.bb);
                 if (!p.bb.hasRemaining()) {
                     sentCount.getAndIncrement();
+                    //  从发送队列删除
                     outgoingQueue.removeFirstOccurrence(p);
                     if (p.requestHeader != null
                         && p.requestHeader.getType() != OpCode.ping
                         && p.requestHeader.getType() != OpCode.auth) {
                         synchronized (pendingQueue) {
+                            // 加入到pendingQueue队列
                             pendingQueue.add(p);
                         }
                     }
@@ -256,7 +262,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
      * @throws IOException
      */
     void registerAndConnect(SocketChannel sock, InetSocketAddress addr) throws IOException {
+        // 注册
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
+        // 连接
         boolean immediateConnect = sock.connect(addr);
         if (immediateConnect) {
             sendThread.primeConnection();
@@ -265,8 +273,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     @Override
     void connect(InetSocketAddress addr) throws IOException {
+        // 创建 socket
         SocketChannel sock = createSock();
         try {
+            // 注册并连接
             registerAndConnect(sock, addr);
         } catch (UnresolvedAddressException | UnsupportedAddressTypeException | SecurityException | IOException e) {
             LOG.error("Unable to open socket to {}", addr);

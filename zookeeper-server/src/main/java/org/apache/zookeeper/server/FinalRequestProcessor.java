@@ -387,6 +387,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 lastOp = "GETD";
                 GetDataRequest getDataRequest = request.readRequestRecord(GetDataRequest::new);
                 path = getDataRequest.getPath();
+                // 调用处理 getData 请求的方法
                 rsp = handleGetDataRequest(getDataRequest, cnxn, request.authInfo);
                 requestPathMetricsCollector.registerRequest(request.type, path);
                 break;
@@ -644,6 +645,7 @@ public class FinalRequestProcessor implements RequestProcessor {
 
     private Record handleGetDataRequest(Record request, ServerCnxn cnxn, List<Id> authInfo) throws KeeperException, IOException {
         GetDataRequest getDataRequest = (GetDataRequest) request;
+        // 获取 path
         String path = getDataRequest.getPath();
         DataNode n = zks.getZKDatabase().getNode(path);
         if (n == null) {
@@ -651,6 +653,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
         zks.checkACL(cnxn, zks.getZKDatabase().aclForNode(n), ZooDefs.Perms.READ, authInfo, path, null);
         Stat stat = new Stat();
+        // 从请求中获取是否需要注册 Watcher
         byte[] b = zks.getZKDatabase().getData(path, stat, getDataRequest.getWatch() ? cnxn : null);
         return new GetDataResponse(b, stat);
     }

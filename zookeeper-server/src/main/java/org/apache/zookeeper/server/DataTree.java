@@ -649,6 +649,7 @@ public class DataTree {
         nodeDataSize.addAndGet(getNodeSize(path, data) - getNodeSize(path, lastData));
 
         updateWriteStat(path, dataBytes);
+        // 调用IWatchManager 的方法 触发 watcher
         dataWatches.triggerWatch(path, EventType.NodeDataChanged, zxid);
         return s;
     }
@@ -689,6 +690,7 @@ public class DataTree {
         synchronized (n) {
             n.copyStat(stat);
             if (watcher != null) {
+                // 添加 watcher 到 watchTable watch2Paths
                 dataWatches.addWatch(path, watcher);
             }
             data = n.data;

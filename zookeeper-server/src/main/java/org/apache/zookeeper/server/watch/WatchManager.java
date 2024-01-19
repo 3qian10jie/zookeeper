@@ -135,11 +135,14 @@ public class WatchManager implements IWatchManager {
 
     @Override
     public WatcherOrBitSet triggerWatch(String path, EventType type, long zxid, WatcherOrBitSet supress) {
+        // 根据事件类型、连接状态、节点路径创建 WatchedEvent
         WatchedEvent e = new WatchedEvent(type, KeeperState.SyncConnected, path, zxid);
         Set<Watcher> watchers = new HashSet<>();
         synchronized (this) {
+            // path 迭代器
             PathParentIterator pathParentIterator = getPathParentIterator(path);
             for (String localPath : pathParentIterator.asIterable()) {
+                // 取出 path 下的监听器集合
                 Set<Watcher> thisWatchers = watchTable.get(localPath);
                 if (thisWatchers == null || thisWatchers.isEmpty()) {
                     continue;
@@ -147,7 +150,9 @@ public class WatchManager implements IWatchManager {
                 Iterator<Watcher> iterator = thisWatchers.iterator();
                 while (iterator.hasNext()) {
                     Watcher watcher = iterator.next();
+                    // 根据 watcher 从 watch2Paths 取出该 watcher 的 path
                     Map<String, WatchStats> paths = watch2Paths.getOrDefault(watcher, Collections.emptyMap());
+                    // 获取 path 下 watcher 的状态
                     WatchStats stats = paths.get(localPath);
                     if (stats == null) {
                         LOG.warn("inconsistent watch table for watcher {}, {} not in path list", watcher, localPath);
@@ -157,6 +162,7 @@ public class WatchManager implements IWatchManager {
                         watchers.add(watcher);
                         WatchStats newStats = stats.removeMode(WatcherMode.STANDARD);
                         if (newStats == WatchStats.NONE) {
+                            // 删除 watcher
                             iterator.remove();
                             paths.remove(localPath);
                         } else if (newStats != stats) {
@@ -166,6 +172,7 @@ public class WatchManager implements IWatchManager {
                         watchers.add(watcher);
                     }
                 }
+                // 删除 path 的监听
                 if (thisWatchers.isEmpty()) {
                     watchTable.remove(localPath);
                 }
@@ -182,6 +189,7 @@ public class WatchManager implements IWatchManager {
             if (supress != null && supress.contains(w)) {
                 continue;
             }
+            // 监听事件处理 服务端 ServerCnxn
             w.process(e);
         }
 

@@ -278,6 +278,7 @@ public class ZooKeeperMain {
         }
 
         int timeout = Integer.parseInt(cl.getOption("timeout"));
+        // 创建 ZooKeeperAdmin 对象
         zk = new ZooKeeperAdmin(host, timeout, new MyWatcher(), readOnly, clientConfig);
         if (connectLatch != null) {
             if (!connectLatch.await(timeout, TimeUnit.MILLISECONDS)) {
@@ -296,6 +297,7 @@ public class ZooKeeperMain {
     public ZooKeeperMain(String[] args) throws IOException, InterruptedException {
         cl.parseOptions(args);
         System.out.println("Connecting to " + cl.getOption("server"));
+        // 连接 ZK
         connectToZK(cl.getOption("server"));
     }
 

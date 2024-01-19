@@ -286,6 +286,7 @@ public class ZooKeeper implements AutoCloseable {
          */
         public void register(int rc) {
             if (shouldAddWatch(rc)) {
+                // 将对应的 Watcher 注册到对应的 Map<String, Set<Watcher>>
                 Map<String, Set<Watcher>> watches = getWatches(rc);
                 synchronized (watches) {
                     Set<Watcher> watchers = watches.get(serverPath);
@@ -1075,6 +1076,7 @@ public class ZooKeeper implements AutoCloseable {
         int sessionTimeout = options.getSessionTimeout();
         long sessionId = options.getSessionId();
         byte[] sessionPasswd = sessionId == 0 ? new byte[16] : options.getSessionPasswd();
+        // 赋值 watcher 给默认的 defaultWatcher
         Watcher watcher = options.getDefaultWatcher();
         boolean canBeReadOnly = options.isCanBeReadOnly();
 
@@ -1097,6 +1099,7 @@ public class ZooKeeper implements AutoCloseable {
 
         ZKClientConfig clientConfig = options.getClientConfig();
         this.clientConfig = clientConfig != null ? clientConfig : new ZKClientConfig();
+        // 解析连接地址
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
         HostProvider hostProvider;
         if (options.getHostProvider() != null) {
@@ -1107,6 +1110,7 @@ public class ZooKeeper implements AutoCloseable {
         this.hostProvider = hostProvider;
 
         chroot = Chroot.ofNullable(connectStringParser.getChrootPath());
+        // 客户端与服务器端通信的终端
         cnxn = createConnection(
             hostProvider,
             sessionTimeout,
@@ -1117,6 +1121,7 @@ public class ZooKeeper implements AutoCloseable {
             sessionPasswd,
             canBeReadOnly);
         cnxn.seenRwServerBefore = sessionId != 0; // since user has provided sessionId
+        // 启动
         cnxn.start();
     }
 
@@ -1997,19 +2002,23 @@ public class ZooKeeper implements AutoCloseable {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
+        // 创建 数据类型  的 watch registration
         WatchRegistration wcb = null;
         if (watcher != null) {
             wcb = new DataWatchRegistration(watcher, clientPath);
         }
 
+        // 将客户端change root directory 的路径加上、变回服务端那边正常的路径
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
         h.setType(ZooDefs.OpCode.getData);
         GetDataRequest request = new GetDataRequest();
         request.setPath(serverPath);
+        // 标记是否有 watcher
         request.setWatch(watcher != null);
         GetDataResponse response = new GetDataResponse();
+        // 提交请求
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
@@ -3077,6 +3086,7 @@ public class ZooKeeper implements AutoCloseable {
         }
 
         try {
+            // 通过反射获取 clientCxnSocket 对象
             Constructor<?> clientCxnConstructor = Class.forName(clientCnxnSocketName)
                                                        .getDeclaredConstructor(ZKClientConfig.class);
             ClientCnxnSocket clientCxnSocket = (ClientCnxnSocket) clientCxnConstructor.newInstance(getClientConfig());
